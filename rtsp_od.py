@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import os
 
+"""
+Create the folder data and models 
+"""
 DATA_DIR = os.path.join(os.getcwd(), 'data')
 MODELS_DIR = os.path.join(DATA_DIR, 'models')
 for dir in [DATA_DIR, MODELS_DIR]:
@@ -10,7 +13,9 @@ for dir in [DATA_DIR, MODELS_DIR]:
 import tarfile
 import urllib.request
 
-# Download and extract model
+"""
+Download the model
+"""
 MODEL_DATE = '20200711'
 MODEL_NAME = 'ssd_resnet101_v1_fpn_640x640_coco17_tpu-8'
 MODEL_TAR_FILENAME = MODEL_NAME + '.tar.gz'
@@ -28,7 +33,9 @@ if not os.path.exists(PATH_TO_CKPT):
     os.remove(PATH_TO_MODEL_TAR)
     print('Done')
 
-# Download labels file
+"""
+Download labels file
+"""
 LABEL_FILENAME = 'mscoco_label_map.pbtxt'
 LABELS_DOWNLOAD_BASE = \
     'https://raw.githubusercontent.com/tensorflow/models/master/research/object_detection/data/'
@@ -38,6 +45,9 @@ if not os.path.exists(PATH_TO_LABELS):
     urllib.request.urlretrieve(LABELS_DOWNLOAD_BASE + LABEL_FILENAME, PATH_TO_LABELS)
     print('Done')
 
+"""
+Load the model
+"""
 import tensorflow as tf
 from object_detection.utils import label_map_util
 from object_detection.utils import config_util
@@ -66,10 +76,11 @@ category_index = label_map_util.create_category_index_from_labelmap(
     use_display_name=True)
 
 
+"""
+Detect objects in a frame
+"""
 @tf.function
 def detect_fn(image):
-    """Detect objects in image."""
-
     image, shapes = detection_model.preprocess(image)
     prediction_dict = detection_model.predict(image, shapes)
     detections = detection_model.postprocess(prediction_dict, shapes)
@@ -77,12 +88,11 @@ def detect_fn(image):
 
 
 import cv2
+import numpy as np
+import threading
 
 cap = cv2.VideoCapture("target_video.mp4")
 # cap = cv2.VideoCapture(0)
-import numpy as np
-
-import threading
 
 lock = threading.Lock()
 frame_od = np.zeros(1)
@@ -94,13 +104,9 @@ def object_detect():
     while True:
         # Read frame from camera
         ret, image_np = cap.read()
-        # image_np = cv2.resize(image_np, (640, 640))
         # image_np_expanded = np.expand_dims(image_np, axis=0)
 
         input_tensor = tf.convert_to_tensor(np.expand_dims(image_np, 0), dtype=tf.float32)
-        # image_np = np.tile(
-        #         np.mean(image_np, 2, keepdims=True), (1, 1, 3)).astype(np.uint8)
-        #
         detections, predictions_dict, shapes = detect_fn(input_tensor)
 
         detection_boxes = None
@@ -128,10 +134,8 @@ def object_detect():
         image_np_with_detections = image_np.copy()
         detection_classes = tf.reshape(detection_classes, [tf.shape(detection_classes)[0]])
         detection_scores = tf.reshape(detection_scores, [tf.shape(detection_scores)[0]])
-        # print(detection_boxes)
-        # print(detection_classes)
-        # print(detection_scores)
 
+        # Visualize the result with box and name
         viz_utils.visualize_boxes_and_labels_on_image_array(
             image_np_with_detections,
             detection_boxes.numpy(),
@@ -147,11 +151,6 @@ def object_detect():
             frame_od = image_np_with_detections
         finally:
             lock.release()
-        # cv2.imshow('object detection', cv2.resize(image_np, (800, 600)))
-        # cv2.imshow('object detection', image_np_with_detections)
-        #
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
 
 
 t1 = threading.Thread(target=object_detect)
@@ -164,7 +163,9 @@ gi.require_version('GstRtspServer', '1.0')
 from gi.repository import Gst, GstRtspServer, GObject
 
 
-# see: https://stackoverflow.com/questions/47396372/write-opencv-frames-into-gstreamer-rtsp-server-pipeline?rq=1
+"""
+Start the RTSP server
+"""
 class SensorFactory(GstRtspServer.RTSPMediaFactory):
     def __init__(self, **properties):
         super(SensorFactory, self).__init__(**properties)
@@ -177,11 +178,6 @@ class SensorFactory(GstRtspServer.RTSPMediaFactory):
                              '! videoconvert ! video/x-raw,format=I420 ' \
                              '! x264enc speed-preset=ultrafast tune=zerolatency ' \
                              '! rtph264pay config-interval=1 name=pay0 pt=96'.format(self.fps)
-        # self.launch_string = 'appsrc name=source is-live=true block=true format=GST_FORMAT_TIME ' \
-        #                      'caps=video/x-raw,format=BGR,framerate={}/1 ' \
-        #                      '! videoconvert ! video/x-raw,format=I420 ' \
-        #                      '! x264enc speed-preset=ultrafast tune=zerolatency ' \
-        #                      '! rtph264pay config-interval=1 name=pay0 pt=96'.format(self.fps)
 
     def on_need_data(self, src, lenght):
         global frame_od
@@ -250,7 +246,6 @@ loop.run()
 #         break
 #     else:
 #         print("Please just type in 1, 2, or 3")
-
 
 
 """
